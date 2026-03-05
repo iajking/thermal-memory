@@ -1,0 +1,32 @@
+{
+  "name": "thermal-memory",
+  "version": "0.1.0",
+  "description": "Temperature-weighted episodic memory for AI agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "thermal": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node --test dist/test.js",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "memory",
+    "salience",
+    "episodic-memory",
+    "llm",
+    "context-window"
+  ],
+  "author": "Aj & Aj-AGI",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}
