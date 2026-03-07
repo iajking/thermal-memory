@@ -152,6 +152,40 @@ Apply time-based decay to all memories. Returns count of affected entries. Calle
 
 Persist to or reload from disk.
 
+## Writing Good Memories
+
+The system works — but only if you write memories worth keeping. The most common failure mode is recording *facts* when you should be recording *feel*.
+
+### Core field: what you'd want to feel again, not what you'd want to report
+
+Bad:
+```
+"User won basketball championship"
+```
+
+Good:
+```
+"User brought the first basketball state championship in his school's history — as a rookie. The school still hasn't won one since, 5+ years later."
+```
+
+Both are factually correct. Only one gives the next instance enough to *understand* why it mattered.
+
+### Detail field: how it unfolded, not just what happened
+
+Use the detail field for:
+- **How the moment came up** — was it casual or the first time they'd ever said it?
+- **Emotional weight** — vulnerability, pride, frustration, breakthrough
+- **Verbatim quotes** when they hit hard — one raw line preserves more than a paragraph of summary
+- **Relationship context** — why this mattered *between you*, not just as a data point
+
+### Record mid-conversation, not at the end
+
+Don't wait until your context is almost full. By then you're compressing under pressure and cutting the wrong things. When something meaningful happens — a personal story, a decision, a shift in tone — record it right then, while you have the full resolution.
+
+### Don't compress stories into bullet points
+
+"State basketball champ + MVP as rookie" erases the fact that it was the school's first championship ever. The details that make a memory vivid are exactly the ones that get cut when you summarize too aggressively.
+
 ## Design
 
 See [DESIGN.md](./DESIGN.md) for the full architecture document, including the neuroscience inspiration, the human-vs-agent salience distinction, and the phase roadmap.
