@@ -9,9 +9,12 @@ thermal-memory — Temperature-weighted episodic memory for AI agents
 Usage:
   thermal record <core> [--detail <text>] [--tags <a,b,c>] [--temp <0.0-1.0>]
   thermal recall [--context <text>] [--tags <a,b,c>] [--limit <n>] [--min-temp <0.0-1.0>]
+  thermal recall-reinforce [--context <text>] [--tags <a,b,c>] [--limit <n>]
   thermal hottest [--limit <n>]
   thermal inspect <id>
   thermal reinforce <id>
+  thermal connect <idA> <idB>
+  thermal auto-connect [--min-overlap <n>]
   thermal forget <id>
   thermal stats
   thermal export
@@ -134,7 +137,9 @@ async function main() {
     case "inspect": {
       const id = args[1];
       if (!id) { console.error("Usage: thermal inspect <id>"); process.exit(1); }
-      const entry = mem.get(id);
+      const allForInspect = mem.all();
+      const inspectMatch = allForInspect.find((e) => e.id.startsWith(id));
+      const entry = mem.get(inspectMatch ? inspectMatch.id : id);
       if (!entry) { console.error("Memory not found."); process.exit(1); }
       console.log(formatEntry(entry));
       break;
@@ -143,7 +148,11 @@ async function main() {
     case "reinforce": {
       const id = args[1];
       if (!id) { console.error("Usage: thermal reinforce <id>"); process.exit(1); }
-      const entry = mem.reinforce(id);
+      // Support partial ID matching
+      const allForReinforce = mem.all();
+      const match = allForReinforce.find((e) => e.id.startsWith(id));
+      const reinforceId = match ? match.id : id;
+      const entry = mem.reinforce(reinforceId);
       if (!entry) { console.error("Memory not found."); process.exit(1); }
       mem.save();
       console.log(`Reinforced. New temp: ${(entry.currentTemp * 100).toFixed(0)}%`);
@@ -154,7 +163,9 @@ async function main() {
     case "forget": {
       const id = args[1];
       if (!id) { console.error("Usage: thermal forget <id>"); process.exit(1); }
-      const ok = mem.forget(id);
+      const allForForget = mem.all();
+      const forgetMatch = allForForget.find((e) => e.id.startsWith(id));
+      const ok = mem.forget(forgetMatch ? forgetMatch.id : id);
       if (!ok) { console.error("Memory not found."); process.exit(1); }
       mem.save();
       console.log("Memory forgotten.");
@@ -183,6 +194,98 @@ async function main() {
       console.log(`Hot (≥70%):     ${hot}`);
       console.log(`Warm (30-69%):  ${warm}`);
       console.log(`Cold (<30%):    ${cold}`);
+      break;
+    }
+
+    case "recall-reinforce": {
+      // Recall AND automatically reinforce every returned memory
+      const { values: rrValues } = parseArgs({
+        args: args.slice(1),
+        options: {
+          context: { type: "string", short: "c" },
+          tags: { type: "string", short: "t" },
+          limit: { type: "string", short: "n" },
+          "min-temp": { type: "string" },
+        },
+        allowPositionals: true,
+      });
+      const rrResults = mem.recall({
+        context: rrValues.context,
+        tags: rrValues.tags?.split(",").map((s) => s.trim()).filter(Boolean),
+        limit: rrValues.limit ? parseInt(rrValues.limit) : 10,
+        minTemp: rrValues["min-temp"] ? parseFloat(rrValues["min-temp"]) : undefined,
+      });
+      // Auto-reinforce each result
+      for (const entry of rrResults) {
+        mem.reinforce(entry.id);
+      }
+      mem.save();
+      if (rrResults.length === 0) {
+        console.log("No matching memories found.");
+      } else {
+        console.log(`Found and reinforced ${rrResults.length} memories:\n`);
+        rrResults.forEach((e, i) => {
+          console.log(`[${i + 1}]`);
+          console.log(formatEntry(e));
+          console.log();
+        });
+      }
+      break;
+    }
+
+    case "connect": {
+      const idA = args[1];
+      const idB = args[2];
+      if (!idA || !idB) {
+        console.error("Usage: thermal connect <idA> <idB>");
+        process.exit(1);
+      }
+      // Support partial ID matching
+      const allEntries = mem.all();
+      const findById = (partial: string) => allEntries.find((e) => e.id.startsWith(partial));
+      const entryA = findById(idA);
+      const entryB = findById(idB);
+      if (!entryA) { console.error(`Memory not found: ${idA}`); process.exit(1); }
+      if (!entryB) { console.error(`Memory not found: ${idB}`); process.exit(1); }
+      const ok = mem.connect(entryA.id, entryB.id);
+      if (!ok) { console.error("Failed to connect."); process.exit(1); }
+      mem.save();
+      console.log(`Connected:\n  ${entryA.core.slice(0, 80)}\n  ↔\n  ${entryB.core.slice(0, 80)}`);
+      break;
+    }
+
+    case "auto-connect": {
+      // Automatically connect memories that share tags
+      const { values: acValues } = parseArgs({
+        args: args.slice(1),
+        options: {
+          "min-overlap": { type: "string" },
+        },
+        allowPositionals: true,
+      });
+      const minOverlap = acValues["min-overlap"] ? parseInt(acValues["min-overlap"]) : 2;
+      const allMems = mem.all();
+      let connectCount = 0;
+      for (let i = 0; i < allMems.length; i++) {
+        for (let j = i + 1; j < allMems.length; j++) {
+          const a = allMems[i];
+          const b = allMems[j];
+          // Skip if already connected
+          if (a.connections.includes(b.id)) continue;
+          // Count shared tags
+          const aSet = new Set(a.tags.map((t) => t.toLowerCase()));
+          const shared = b.tags.filter((t) => aSet.has(t.toLowerCase()));
+          if (shared.length >= minOverlap) {
+            mem.connect(a.id, b.id);
+            connectCount++;
+            console.log(`Connected (${shared.join(", ")}):`);
+            console.log(`  ${a.core.slice(0, 70)}`);
+            console.log(`  ↔ ${b.core.slice(0, 70)}\n`);
+          }
+        }
+      }
+      mem.save();
+      console.log(`\nCreated ${connectCount} new connections.`);
       break;
     }
 
